@@ -9,7 +9,7 @@
 
 本文并不是翻译官方文档,而是用自己的理解描述出对应的含义,算是一个说明.
 
-### 概述
+### 说明
 
 #### Webhooks
 
@@ -150,9 +150,55 @@ X-GitHub-Event: issues
 注意：如果你正在建设一个新的整合，你应该把它作为webhook。我们建议创建一个OAuth应用自动安装和管理您的用户webhooks。我们将不再接受新的服务GitHub服务库。
 
 
+#### 创建Webhooks
+
+现在我们了解webhooks的基础知识，让我们通过建立我们自己的动力一体化进程webhook。在本教程中，我们将创建一个版本库webhook负责列出我们的仓库是多么的流行，基于问题数量接收每一天。
+
+
+创建一个webhook是一个两步的过程。首先你需要设置你的行为通过GitHub webhook什么事件要听。在那之后，您将设置您的服务器来接收和管理负载。
+
+##### 建立一个webhook
+
+在一个项目,进入设置界面,选择*Webhooks & services*,点击*Add webhook*. 
+
+选择配置项,配置参数,就可以使用了.
+
+
+##### 有效的URL
+
+填写GitHub服务器在事件触发的时候访问的URL.
+
+如果是本地测试,可以采用 [这个地址](https://developer.github.com/webhooks/configuring/)进行本地测试,这里使用的是`ngrok`来进行本地服务器映射外网来达到调试的目的.
+
+
+##### Content Type
+
+Webhooks能够返回两种格式的内容
+
+- `application/json` 
+- `application/x-www-form-urlencoded`
+
+一般我们都选择`application/json`.
+
+##### 事件
+
+事件是webhooks的核心,项目webhooks的被触发后会通过你的URL传递过去.
+
+最后,点击*Add webhook*,就完成了整个创建流程.
+
+#### 配置你的服务端
+
+
+##### 安装ngrok
+
+
+ 
+#####  写server端处理代码
 
 
 
 ## 参考资料
 
 - https://developer.github.com/webhooks/
+- https://developer.github.com/webhooks/configuring/
+- https://ngrok.com/
