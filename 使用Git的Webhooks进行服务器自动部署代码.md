@@ -191,9 +191,151 @@ Webhooks能够返回两种格式的内容
 
 ##### 安装ngrok
 
+下载地址  https://ngrok.com/download
 
+```shell
+./ngrok -help
+./ngrok http 8081
+```
  
+ 就会出现
+ 
+```
+ ngrok by @inconshreveable                                                                    (Ctrl+C to quit)
+                                                                                                              
+ Tunnel Status                 online                                                                         
+ Version                       2.0.25/2.1.1                                                                   
+ Region                        United States (us)                                                             
+ Web Interface                 http://127.0.0.1:4040                                                          
+ Forwarding                    http://6bba728e.ngrok.io -> localhost:8081                                       
+ Forwarding                    https://6bba728e.ngrok.io -> localhost:8081                                      
+                                                                                                              
+ Connections                   ttl     opn     rt1     rt5     p50     p90                                    
+                               0       0       0.00    0.00    0.00    0.00                                   
+```
+ 
+ 
+ 在本地浏览器输入 `http://127.0.0.1:4040/` ,就会进入本地测试的管理界面. :)
+ 
+ 
+```
+ No requests to display yet
+ To get started, make a request to one of your tunnel URLs
+ http://5d3951bf.ngrok.io
+ https://5d3951bf.ngrok.io
+```
+
+再去浏览器输入可以对外访问的地址 `http://5d3951bf.ngrok.io`
+ 
+这样就完成了本地服务器可以进行外部访问的映射.
+
+这时给出的返回是
+
+```
+Failed to complete tunnel connection
+The connection to http://5d3951bf.ngrok.io was successfully tunneled to your ngrok client, but the client failed to establish a connection to the local address localhost:8081.
+Make sure that a web service is running on localhost:80 and that it is a valid address.
+The error encountered was: dial tcp 127.0.0.1:8081: connection refused
+```
+
+表示已经连上了本地测试,但是本地的80端口没有给出返回,需要我们进行本地环境的代码编写.
+
+
 #####  写server端处理代码
+
+首先解决gem在国内不能用的情况
+
+```shell
+gem sources --remove https://rubygems.org/
+gem sources -a https://ruby.taobao.org/
+gem sources -l
+```
+
+安装`Sinatra`,进行本地的测试代码
+
+```shell
+gem install sinatra
+```
+
+编写对应的代码,GitHub给出了相关的demo代码,熟悉阶段可以直接用.
+
+```
+vi demo.rb
+
+require 'sinatra'
+require 'json'
+
+post '/payload' do
+  push = JSON.parse(request.body.read)
+  puts "I got some JSON: #{push.inspect}"
+end
+```
+
+
+创建本地服务,这里注意的是,默认的端口是4567,我们需要改成和上面配置一样的**8081**
+
+```
+ruby demo.rb -p 8081
+```
+
+
+经过这个操作,我们就可以在本地进行测试了.
+
+注意的是,这部分的配置测试环节并不是强制的.
+
+我们可以把sinatra换成本地的apache+php或者别的,或者,我们可以直接在自己的服务器上进行测试,只要保证可以看到对应的返回方便测试就是可以的.
+
+接下来我们就可以进行测试了.
+
+
+#### 测试Webhooks
+
+##### 监听地址
+
+我们回到项目的配置地址,填写的URL为`http://5d3951bf.ngrok.io/payload`. 
+
+就可以测试了
+
+[Recent Deliveries](https://developer.github.com/assets/images/webhooks_recent_deliveries.png)
+
+
+
+##### 检查结果
+
+我们可以通过点击每条结果上前面的icon,查看对应的详细数据,展示结果很直观,不用多解释.
+
+
+###### Request
+
+![Request](https://developer.github.com/assets/images/payload_request_tab.png)
+
+
+###### Response
+
+![Request](https://developer.github.com/assets/images/payload_response_tab.png)
+
+
+#### 保护你的webhooks
+
+由于被动触发的webhooks是对外公开的,所以我们需要保证每次请求都是合法的.IP白名单是一个手段,但是采用密钥的方式更好~
+
+##### 设置加密token
+
+设置项目setting,在创建webhooks的时候,填写一个随机的字符串作为Secret.
+
+![](https://developer.github.com/assets/images/webhook_secret_token.png)
+
+推荐使用`ruby -rsecurerandom -e 'puts SecureRandom.hex(20)'`进行加密字符串的生成.
+
+生成结果类似`b93cc391fd5773057397ada7070e91add983cbb9`.
+
+接下来在服务器采用定义环境变量的方式存储token,**千万不要写在代码中!**
+
+```
+export SECRET_TOKEN=your_token
+```
+
+##### 服务端校验
 
 
 
@@ -202,3 +344,7 @@ Webhooks能够返回两种格式的内容
 - https://developer.github.com/webhooks/
 - https://developer.github.com/webhooks/configuring/
 - https://ngrok.com/
+- https://ngrok.com/docs/2#expose
+- http://www.sinatrarb.com/
+- http://www.sinatrarb.com/intro-zh.html
+- http://www.haorooms.com/post/gem_not_use
