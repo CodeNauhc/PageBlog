@@ -337,6 +337,33 @@ export SECRET_TOKEN=your_token
 
 ##### 服务端校验
 
+服务端的校验,采用的传递过来的Header的`X-Hub-Signature`.
+
+文档上给的是Ruby的校验方式
+
+```Ruby
+
+post '/payload' do
+  request.body.rewind
+  payload_body = request.body.read
+  verify_signature(payload_body)
+  push = JSON.parse(params[:payload])
+  puts "I got some JSON: #{push.inspect}"
+end
+
+def verify_signature(payload_body)
+  signature = 'sha1=' + OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new('sha1'), ENV['SECRET_TOKEN'], payload_body)
+  return halt 500, "Signatures didn't match!" unless Rack::Utils.secure_compare(signature, request.env['HTTP_X_HUB_SIGNATURE'])
+end
+
+
+```
+
+但是并不是所有的项目都是用ruby来做的,所以这里总结的校验的重点
+
+- `sha1`的密钥就是你设置的token
+- 做比较的时候不能单纯比较值,还有对应的类型
+
 
 
 ## 参考资料
@@ -348,3 +375,5 @@ export SECRET_TOKEN=your_token
 - http://www.sinatrarb.com/
 - http://www.sinatrarb.com/intro-zh.html
 - http://www.haorooms.com/post/gem_not_use
+- https://github.com/github/github-services/blob/14f4da01ce29bc6a02427a9fbf37b08b141e81d9/lib/services/web.rb#L47-L50
+- http://baike.baidu.com/link?url=kKrv7UL6SqlvqkrXT06_o0Tj90YK-1w8sgGDRH06qr18I90lCxBHR3WVDcdWy0XJTXfwdYiDW-StOyTB5hgqC_
