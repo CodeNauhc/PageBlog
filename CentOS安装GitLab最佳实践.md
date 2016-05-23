@@ -67,6 +67,7 @@ sudo firewall-cmd --permanent --add-service=http
 sudo systemctl reload firewalld
 ```
 
+
 ### postfix 服务启动失败
 
 ```
@@ -83,6 +84,14 @@ inet_protocols = all
 ```
 
 启动服务 `sudo systemctl start postfix`,成功.
+
+
+### 安装firewalld
+
+` yum install firewalld`
+
+`systemctl unmask firewalld`
+
 
 ## 添加GitLab安装包到服务器
 
@@ -164,6 +173,205 @@ It looks like GitLab has not been configured yet; skipping the upgrade script.
 
 <del>根据我们服务器监控记录,配置过程花了5个小时!</del>
 
+# 修改配置文件 /etc/gitlab/gitlab.rb
+
+目前的状态是完成了安装包的安装,但是还没有启用配置文件,所以依赖还都没有装。
+
+所以非常不建议直接运行`sudo gitlab-ctl reconfigure`,<del>不能再踩一次坑!QAQ</del>
+
+基本我们要调的东西都在`/etc/gitlab/gitlab.rb`里面,所以这个文件一定要仔细看好。
+
+## 修改连接数据库为Mysql
+
+因为我们本机已经用了LNMP做了环境,所以可以直接采用Mysql作为我们的数据库,而不用`postgresql`,减少服务器的负担。
+
+**企业版才支持使用mysql**
+
+QAQ
+
+```
+# Disable the built-in Postgres
+postgresql['enable'] = false
+
+# Fill in the values for database.yml
+gitlab_rails['db_adapter'] = 'mysql2'
+gitlab_rails['db_encoding'] = 'utf8'
+gitlab_rails['db_host'] = '127.0.0.1'
+gitlab_rails['db_port'] = '3306'
+gitlab_rails['db_username'] = 'USERNAME'
+gitlab_rails['db_password'] = 'PASSWORD'
+```
+
+## 采用本机自带的nginx
+
+```
+################
+# GitLab Nginx #
+################
+## see: https://gitlab.com/gitlab-org/omnibus-gitlab/tree/master/doc/settings/nginx.md
+
+nginx['enable'] = false
+nginx['client_max_body_size'] = '250m'
+nginx['redirect_http_to_https'] = false
+#nginx['redirect_http_to_https_port'] = 80
+# nginx['ssl_client_certificate'] = "/etc/gitlab/ssl/ca.crt" # Most root CA's are included by default
+# nginx['ssl_certificate'] = "/etc/gitlab/ssl/#{node['fqdn']}.crt"
+# nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/#{node['fqdn']}.key"
+# nginx['ssl_ciphers'] = "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256"
+# nginx['ssl_prefer_server_ciphers'] = "on"
+# nginx['ssl_protocols'] = "TLSv1 TLSv1.1 TLSv1.2" # recommended by https://raymii.org/s/tutorials/Strong_SSL_Security_On_nginx.html & https://cipherli.st/
+# nginx['ssl_session_cache'] = "builtin:1000  shared:SSL:10m" # recommended in http://nginx.org/en/docs/http/ngx_http_ssl_module.html
+# nginx['ssl_session_timeout'] = "5m" # default according to http://nginx.org/en/docs/http/ngx_http_ssl_module.html
+# nginx['ssl_dhparam'] = nil # Path to dhparams.pem, eg. /etc/gitlab/ssl/dhparams.pem
+nginx['listen_addresses'] = ["0.0.0.0", "[::]"]
+nginx['listen_port'] =  80    # override only if you use a reverse proxy: https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/doc/settings/nginx.md#setting-the-nginx-listen-port
+# nginx['listen_https'] = nil # override only if your reverse proxy internally communicates over HTTP: https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/doc/settings/nginx.md#supporting-proxied-ssl
+# nginx['custom_gitlab_server_config'] = "location ^~ /foo-namespace/bar-project/raw/ {\n deny all;\n}\n"
+# nginx['custom_nginx_config'] = "include /etc/nginx/conf.d/example.conf;"
+# nginx['proxy_read_timeout'] = 300
+# nginx['proxy_connect_timeout'] = 300
+# nginx['proxy_set_headers'] = {
+#  "Host" => "$http_host",
+#  "X-Real-IP" => "$remote_addr",
+#  "X-Forwarded-For" => "$proxy_add_x_forwarded_for",
+#  "X-Forwarded-Proto" => "https",
+#  "X-Forwarded-Ssl" => "on"
+# }
+# nginx['proxy_cache_path'] = 'proxy_cache keys_zone=gitlab:10m max_size=1g levels=1:2'
+# nginx['proxy_cache'] = 'gitlab'
+# nginx['http2_enabled'] = true
+# nginx['real_ip_trusted_addresses'] = []
+# nginx['real_ip_header'] =
+# nginx['real_ip_recursive'] = nil
+
+nginx['custom_nginx_config'] = "include /etc/nginx/conf.d/*.conf;" # If you need to add custom settings into the NGINX config, for example to include existing server blocks, you can use the following setting.
+## Advanced settings
+nginx['dir'] = "/usr/local/nginx"
+nginx['log_directory'] = "/usr/local/nginx"
+nginx['worker_processes'] = 4
+nginx['worker_connections'] = 10240
+nginx['log_format'] = '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'
+# nginx['sendfile'] = 'on'
+# nginx['tcp_nopush'] = 'on'
+# nginx['tcp_nodelay'] = 'on'
+nginx['gzip'] = "on"
+nginx['gzip_http_version'] = "1.0"
+nginx['gzip_comp_level'] = "2"
+# nginx['gzip_proxied'] = "any"
+nginx['gzip_types'] = [ "text/plain", "text/css", "application/x-javascript", "text/xml", "application/xml", "application/xml+rss", "text/javascript", "application/json" ]
+nginx['keepalive_timeout'] = 65
+nginx['cache_max_size'] = '5000m'
+```
+
+创建vhost下的配置文件,指向GitLab文件夹
+
+```
+upstream gitlab-workhorse {
+  server unix://var/opt/gitlab/gitlab-workhorse/socket fail_timeout=0;
+}
+
+server {
+  listen *:80;
+  server_name git.example.com;
+  server_tokens off;
+  root /opt/gitlab/embedded/service/gitlab-rails/public;
+
+  client_max_body_size 250m;
+
+  access_log  /var/log/gitlab/nginx/gitlab_access.log;
+  error_log   /var/log/gitlab/nginx/gitlab_error.log;
+
+  # Ensure Passenger uses the bundled Ruby version
+  passenger_ruby /opt/gitlab/embedded/bin/ruby;
+
+  # Correct the $PATH variable to included packaged executables
+  passenger_env_var PATH "/opt/gitlab/bin:/opt/gitlab/embedded/bin:/usr/local/bin:/usr/bin:/bin";
+
+  # Make sure Passenger runs as the correct user and group to
+  # prevent permission issues
+  passenger_user git;
+  passenger_group git;
+
+  # Enable Passenger & keep at least one instance running at all times
+  passenger_enabled on;
+  passenger_min_instances 1;
+
+  location ~ ^/[\w\.-]+/[\w\.-]+/(info/refs|git-upload-pack|git-receive-pack)$ {
+    # 'Error' 418 is a hack to re-use the @gitlab-workhorse block
+    error_page 418 = @gitlab-workhorse;
+    return 418;
+  }
+
+  location ~ ^/[\w\.-]+/[\w\.-]+/repository/archive {
+    # 'Error' 418 is a hack to re-use the @gitlab-workhorse block
+    error_page 418 = @gitlab-workhorse;
+    return 418;
+  }
+
+  location ~ ^/api/v3/projects/.*/repository/archive {
+    # 'Error' 418 is a hack to re-use the @gitlab-workhorse block
+    error_page 418 = @gitlab-workhorse;
+    return 418;
+  }
+
+  # Build artifacts should be submitted to this location
+  location ~ ^/[\w\.-]+/[\w\.-]+/builds/download {
+      client_max_body_size 0;
+      # 'Error' 418 is a hack to re-use the @gitlab-workhorse block
+      error_page 418 = @gitlab-workhorse;
+      return 418;
+  }
+
+  # Build artifacts should be submitted to this location
+  location ~ /ci/api/v1/builds/[0-9]+/artifacts {
+      client_max_body_size 0;
+      # 'Error' 418 is a hack to re-use the @gitlab-workhorse block
+      error_page 418 = @gitlab-workhorse;
+      return 418;
+  }
+
+  location @gitlab-workhorse {
+
+    ## https://github.com/gitlabhq/gitlabhq/issues/694
+    ## Some requests take more than 30 seconds.
+    proxy_read_timeout      3600;
+    proxy_connect_timeout   300;
+    proxy_redirect          off;
+
+    # Do not buffer Git HTTP responses
+    proxy_buffering off;
+
+    proxy_set_header    Host                $http_host;
+    proxy_set_header    X-Real-IP           $remote_addr;
+    proxy_set_header    X-Forwarded-For     $proxy_add_x_forwarded_for;
+    proxy_set_header    X-Forwarded-Proto   $scheme;
+
+    proxy_pass http://gitlab-workhorse;
+
+    ## The following settings only work with NGINX 1.7.11 or newer
+    #
+    ## Pass chunked request bodies to gitlab-workhorse as-is
+    # proxy_request_buffering off;
+    # proxy_http_version 1.1;
+  }
+
+  ## Enable gzip compression as per rails guide:
+  ## http://guides.rubyonrails.org/asset_pipeline.html#gzip-compression
+  ## WARNING: If you are using relative urls remove the block below
+  ## See config/application.rb under "Relative url support" for the list of
+  ## other files that need to be changed for relative url support
+  location ~ ^/(assets)/ {
+    root /opt/gitlab/embedded/service/gitlab-rails/public;
+    gzip_static on; # to serve pre-gzipped version
+    expires max;
+    add_header Cache-Control public;
+  }
+
+  error_page 502 /502.html;
+}
+```
+
+
 
 # 使用
 
@@ -243,18 +451,14 @@ run: unicorn: (pid 19707) 23134s; run: log: (pid 19706) 23134s
 
 `gitlab-ctl tail`
 
-还真的出现了问题.
+# 后记
+<del>GitLab对服务器的要求比较高,文档上说4核8G,我的1核512M的小服务器在安装多次后卡死多次。我决定暂时先放放。。。以后再做这个。。。</del>
 
-### 80端口占用问题
 
-`bind() to 0.0.0.0:80 failed (98: Address already in use)`
+QAQ
 
-很显然,由于我们的服务器已经采用了nginx,并且已经使用了80端口,导致这部分出错.
 
-```
-# service nginx restart
-Restarting nginx (via systemctl):  Job for nginx.service failed. See 'systemctl status nginx.service' and 'journalctl -xn' for details
-```
+
 
 
 # 参考资料
@@ -263,3 +467,4 @@ Restarting nginx (via systemctl):  Job for nginx.service failed. See 'systemctl 
 - http://www.chhua.com/web-note4929
 - https://mirror.tuna.tsinghua.edu.cn/help/gitlab-ce/
 - https://about.gitlab.com/downloads/
+- https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/doc/settings/database.md#database-settings
