@@ -19,8 +19,56 @@ Codename:	Core
 
 # 安装
 
+安装采用官网提供的安装方法.
 
-### postfix 不能启动
+进入页面 https://about.gitlab.com/downloads/
+
+选择 CentOS 7
+
+## 硬件要求
+
+GitLab对硬件的要求不是很高,很显然,越好的硬件,越能支撑起更多的项目的和用户.
+
+## 系统要求
+
+### 支持的类UNIX系统
+
+- Ubuntu
+- Debian
+- CentOS
+- Red Hat Enterprise Linux (please use the CentOS packages and instructions)
+- Scientific Linux (please use the CentOS packages and instructions)
+- Oracle Linux (please use the CentOS packages and instructions)
+
+### 不支持的类UNIX系统
+
+- OS X
+- Arch Linux
+- Fedora
+- Gentoo
+- FreeBSD
+
+### 不是类UNIX的系统
+
+比如Windows,并不支持.
+
+## 安装和配置必要的依赖关系
+
+如果你安装postfix发送邮件，请选择“网站设置”中。而不是使用后缀也可以使用sendmail配置自定义SMTP服务器配置为SMTP服务器。
+
+```
+sudo yum install curl policycoreutils openssh-server openssh-clients
+sudo systemctl enable sshd
+sudo systemctl start sshd
+sudo yum install postfix
+sudo systemctl enable postfix
+sudo systemctl start postfix
+sudo firewall-cmd --permanent --add-service=http
+sudo systemctl reload firewalld
+```
+
+### postfix 服务启动失败
+
 ```
  /usr/sbin/postconf: fatal: parameter inet_interfaces: no local interface found for ::1
 ```
@@ -105,7 +153,6 @@ It looks like GitLab has not been configured yet; skipping the upgrade script.
 ```
 
 
-
 ## 配置和开始使用GitLab
 
 
@@ -116,6 +163,7 @@ It looks like GitLab has not been configured yet; skipping the upgrade script.
 提示!安装的时间会很长!!!
 
 <del>根据我们服务器监控记录,配置过程花了5个小时!</del>
+
 
 # 使用
 
@@ -208,21 +256,10 @@ run: unicorn: (pid 19707) 23134s; run: log: (pid 19706) 23134s
 Restarting nginx (via systemctl):  Job for nginx.service failed. See 'systemctl status nginx.service' and 'journalctl -xn' for details
 ```
 
-#### 修改配置文件
-
-`vim /var/opt/gitlab/nginx/conf/gitlab-http.conf`
-
-改成
-
-```
-
-
-```
 
 # 参考资料
 
 - https://about.gitlab.com/gitlab-com/
-
-
 - http://www.chhua.com/web-note4929
 - https://mirror.tuna.tsinghua.edu.cn/help/gitlab-ce/
+- https://about.gitlab.com/downloads/
