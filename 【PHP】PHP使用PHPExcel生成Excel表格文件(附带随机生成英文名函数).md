@@ -1,4 +1,4 @@
-# PHP使用PHPExcel生成Excel表格文件
+# 【PHP】PHP使用PHPExcel生成Excel表格文件(附带随机生成英文名函数)
 
 ## 前言
 
@@ -522,8 +522,211 @@ $objPHPExcel->setActiveSheetIndex(0);
 不过要注意的是,**demo上实现了功能,并不带代表着代码粘过来就能用**。
 别忘了我们使用composer加载的,demo是直接加载的文件,细微的差别需要在实践上进一步体会。
 
-最后完成的效果是这样的
+#### 计划完成的效果
 
+![预计实现效果](http://static.oschina.net/uploads/space/2016/0610/020707_tLVo_1394214.png)
+
+
+#### 命名空间引入
+
+```php
+
+use PHPExcel;
+use PHPExcel_IOFactory;
+use PHPExcel_Style_Color;
+use PHPExcel_RichText;
+use PHPExcel_Style_NumberFormat;
+
+```
+
+#### 导出文件测试用例方法源码
+
+虽然文档不清晰,但是给的例子还是很不错的。
+
+```php
+
+        //设置文件基本数据
+
+        $objPHPExcel = new PHPExcel();
+
+        $objPHPExcel->getProperties()->setCreator("Calvin Lee")
+            ->setLastModifiedBy("Calvin Lee")
+            ->setTitle("PHPExcel输入文件测试用例")
+            ->setSubject("PHPExcel")
+            ->setDescription("这是一个测试用例,导出之后要求能用Office2007打开")
+            ->setKeywords("测试 PHP PHPExcel")
+            ->setCategory("Test");
+
+        //设置正在编辑和默认选中的标签
+        $objPHPExcel->setActiveSheetIndex(0);
+
+        //合并第一行,写入标题,设置成粗体
+
+        $objPHPExcel->getActiveSheet()->mergeCells('A1:E1');
+
+        $objRichText = new PHPExcel_RichText();
+
+        $objPayable = $objRichText->createTextRun('用户交易订单汇总');
+        $objPayable->getFont()->setBold(true);
+        $objPayable->getFont()->setItalic(true);
+        $objPayable->getFont()->setColor( new PHPExcel_Style_Color( PHPExcel_Style_Color::COLOR_RED ) );
+
+        $objPHPExcel->getActiveSheet()->getCell('A1')->setValue($objRichText);
+
+        //设置第二行名称,设置宽度
+
+        $objPHPExcel->getActiveSheet()->setCellValue('B2', '成交总单数/单');
+        $objPHPExcel->getActiveSheet()->setCellValue('C2', '成交总金额/元');
+        $objPHPExcel->getActiveSheet()->setCellValue('E2', '平均订单金额/元');
+
+        $objPHPExcel->getActiveSheet()->getColumnDimension('A')->setWidth(20);
+        $objPHPExcel->getActiveSheet()->getColumnDimension('B')->setWidth(15);
+        $objPHPExcel->getActiveSheet()->getColumnDimension('C')->setWidth(15);
+        $objPHPExcel->getActiveSheet()->getColumnDimension('D')->setWidth(10);
+        $objPHPExcel->getActiveSheet()->getColumnDimension('E')->setWidth(20);
+
+        //模拟数据循环写入数据和每行平均的公式
+
+        $rand_num = rand(5,10); //设置随机数更接近实际情况
+
+        for($i=1 ; $i <= $rand_num; $i++){
+
+            //随机生成一个名字,:)
+            $rand_name = $this->_makeRandName();
+            $m = $i + 2 ;
+            $objPHPExcel->getActiveSheet()->setCellValue('A'.$m, $rand_name);
+            $objPHPExcel->getActiveSheet()->setCellValue('B'.$m, rand(20,100));
+            $objPHPExcel->getActiveSheet()->setCellValue('C'.$m, rand(2000,10000));
+            $objPHPExcel->getActiveSheet()->setCellValue('E'.$m, '=IF(D'.$m.'<>"0",C'.$m.'/B'.$m.',"0")');
+            //由于平均数得到的会是小数,需要设置单元格格式,四舍五入小数点两位机进行展示
+            $objPHPExcel->getActiveSheet()->getStyle('E'.$m)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_NUMBER_00);
+        }
+
+        //处理最后一行的汇总信息
+        $last_num = $rand_num + 4;
+
+        $rand_num_last = $rand_num +2;
+
+        $objPHPExcel->getActiveSheet()->setCellValue('B'.$last_num, '=SUM(B3:B'.$rand_num_last .')');
+        $objPHPExcel->getActiveSheet()->setCellValue('C'.$last_num, '=SUM(C3:C'.$rand_num_last .')');
+        $objPHPExcel->getActiveSheet()->setCellValue('E'.$last_num, '=AVERAGE(E3:E'.$rand_num_last.')'); //设置平均数
+
+        //由于平均数得到的会是小数,需要设置单元格格式,四舍五入小数点两位机进行展示
+        $objPHPExcel->getActiveSheet()->getStyle('E'.$last_num)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_NUMBER_00);
+        //设置所在标签的属性
+
+        $objPHPExcel->getActiveSheet()->setTitle('用户汇总');
+
+        //创建一个写入对象
+        $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+
+        //保存文件
+        $objWriter->save("测试导出数据".microtime(true).'.xls');
+
+```
+
+
+#### 最后完成效果
+
+![最后完成的样子](http://static.oschina.net/uploads/space/2016/0610/020730_dANl_1394214.png)
+
+顺便解决了平均数的问题~
+
+### 彩蛋
+
+刚才在测试插入随机数据的时候,顺便弄了一个随机生成英文名的方法,顺便分享出来
+
+```php
+
+   /**
+     * 随机生成一个英文名字
+     */
+    private function _makeRandName(){
+        $female_first_name_arr=[
+            "Mary", "Patricia", "Linda", "Barbara", "Elizabeth", "Jennifer", "Maria", "Susan","Margaret", "Dorothy",
+            "Lisa", "Nancy", "Karen", "Betty", "Helen", "Sandra", "Donna","Carol", "Ruth", "Sharon", "Michelle",
+            "Laura", "Sarah", "Kimberly", "Deborah", "Jessica","Shirley", "Cynthia", "Angela", "Melissa", "Brenda",
+            "Amy", "Anna", "Rebecca", "Virginia","Kathleen", "Pamela", "Martha", "Debra", "Amanda", "Stephanie",
+            "Carolyn", "Christine","Marie", "Janet", "Catherine", "Frances", "Ann", "Joyce", "Diane", "Alice",
+            "Julie","Heather", "Teresa", "Doris", "Gloria", "Evelyn", "Jean", "Cheryl", "Mildred", "Katherine","Joan",
+            "Ashley", "Judith", "Rose", "Janice", "Kelly", "Nicole", "Judy", "Christina","Kathy", "Theresa", "Beverly",
+            "Denise", "Tammy", "Irene", "Jane", "Lori", "Rachel","Marilyn", "Andrea", "Kathryn", "Louise", "Sara",
+            "Anne", "Jacqueline", "Wanda", "Bonnie","Julia", "Ruby", "Lois", "Tina", "Phyllis", "Norma", "Paula",
+            "Diana", "Annie", "Lillian","Emily", "Robin", "Peggy", "Crystal", "Gladys", "Rita", "Dawn", "Connie",
+            "Florence","Tracy", "Edna", "Tiffany", "Carmen", "Rosa", "Cindy", "Grace", "Wendy", "Victoria", "Edith",
+            "Kim", "Sherry", "Sylvia", "Josephine", "Thelma", "Shannon", "Sheila", "Ethel", "Ellen","Elaine",
+            "Marjorie", "Carrie", "Charlotte", "Monica", "Esther", "Pauline", "Emma","Juanita", "Anita", "Rhonda",
+            "Hazel", "Amber", "Eva", "Debbie", "April", "Leslie", "Clara","Lucille", "Jamie", "Joanne", "Eleanor",
+            "Valerie", "Danielle", "Megan", "Alicia", "Suzanne","Michele", "Gail", "Bertha", "Darlene", "Veronica",
+            "Jill", "Erin", "Geraldine", "Lauren","Cathy", "Joann", "Lorraine", "Lynn", "Sally", "Regina", "Erica",
+            "Beatrice", "Dolores","Bernice", "Audrey", "Yvonne", "Annette", "June", "Samantha", "Marion", "Dana",
+            "Stacy","Ana", "Renee", "Ida", "Vivian", "Roberta", "Holly", "Brittany", "Melanie", "Loretta","Yolanda",
+            "Jeanette", "Laurie", "Katie", "Kristen", "Vanessa", "Alma", "Sue", "Elsie","Beth", "Jeanne"
+        ];
+
+        $male_first_name_arr=[
+            "James", "John", "Robert", "Michael", "William", "David", "Richard", "Charles", "Joseph","Thomas",
+            "Christopher", "Daniel", "Paul", "Mark", "Donald", "George", "Kenneth", "Steven","Edward", "Brian",
+            "Ronald", "Anthony", "Kevin", "Jason", "Matthew", "Gary", "Timothy","Jose", "Larry", "Jeffrey", "Frank",
+            "Scott", "Eric", "Stephen", "Andrew", "Raymond","Gregory", "Joshua", "Jerry", "Dennis", "Walter",
+            "Patrick", "Peter", "Harold", "Douglas","Henry", "Carl", "Arthur", "Ryan", "Roger", "Joe", "Juan",
+            "Jack", "Albert", "Jonathan","Justin", "Terry", "Gerald", "Keith", "Samuel", "Willie", "Ralph", "Lawrence",
+            "Nicholas","Roy", "Benjamin", "Bruce", "Brandon", "Adam", "Harry", "Fred", "Wayne", "Billy", "Steve",
+            "Louis", "Jeremy", "Aaron", "Randy", "Howard", "Eugene", "Carlos", "Russell", "Bobby","Victor", "Martin",
+            "Ernest", "Phillip", "Todd", "Jesse", "Craig", "Alan", "Shawn","Clarence", "Sean", "Philip", "Chris",
+            "Johnny", "Earl", "Jimmy", "Antonio", "Danny","Bryan", "Tony", "Luis", "Mike", "Stanley", "Leonard",
+            "Nathan", "Dale", "Manuel", "Rodney","Curtis", "Norman", "Allen", "Marvin", "Vincent", "Glenn", "Jeffery",
+            "Travis", "Jeff","Chad", "Jacob", "Lee", "Melvin", "Alfred", "Kyle", "Francis", "Bradley", "Jesus",
+            "Herbert","Frederick", "Ray", "Joel", "Edwin", "Don", "Eddie", "Ricky", "Troy", "Randall", "Barry",
+            "Alexander", "Bernard", "Mario", "Leroy", "Francisco", "Marcus", "Micheal", "Theodore","Clifford",
+            "Miguel", "Oscar", "Jay", "Jim", "Tom", "Calvin", "Alex", "Jon", "Ronnie","Bill", "Lloyd", "Tommy", "Leon",
+            "Derek", "Warren", "Darrell", "Jerome", "Floyd", "Leo","Alvin", "Tim", "Wesley", "Gordon", "Dean", "Greg",
+            "Jorge", "Dustin", "Pedro", "Derrick","Dan", "Lewis", "Zachary", "Corey", "Herman", "Maurice", "Vernon",
+            "Roberto", "Clyde","Glen", "Hector", "Shane", "Ricardo", "Sam", "Rick", "Lester", "Brent", "Ramon",
+            "Charlie","Tyler", "Gilbert", "Gene"
+        ];
+
+        $last_name_arr=[
+            "Smith", "Johnson", "Williams", "Jones", "Brown", "Davis", "Miller", "Wilson", "Moore","Taylor", "Anderson",
+            "Thomas", "Jackson", "White", "Harris", "Martin", "Thompson", "Garcia","Martinez", "Robinson", "Clark",
+            "Rodriguez", "Lewis", "Lee", "Walker", "Hall", "Allen","Young", "Hernandez", "King", "Wright", "Lopez",
+            "Hill", "Scott", "Green", "Adams", "Baker","Gonzalez", "Nelson", "Carter", "Mitchell", "Perez", "Roberts",
+            "Turner", "Phillips","Campbell", "Parker", "Evans", "Edwards", "Collins", "Stewart", "Sanchez", "Morris",
+            "Rogers", "Reed", "Cook", "Morgan", "Bell", "Murphy", "Bailey", "Rivera", "Cooper","Richardson", "Cox",
+            "Howard", "Ward", "Torres", "Peterson", "Gray", "Ramirez", "James","Watson", "Brooks", "Kelly", "Sanders",
+            "Price", "Bennett", "Wood", "Barnes", "Ross","Henderson", "Coleman", "Jenkins", "Perry", "Powell", "Long",
+            "Patterson", "Hughes","Flores", "Washington", "Butler", "Simmons", "Foster", "Gonzales", "Bryant",
+            "Alexander","Russell", "Griffin", "Diaz", "Hayes", "Myers", "Ford", "Hamilton", "Graham", "Sullivan","Wallace",
+            "Woods", "Cole", "West", "Jordan", "Owens", "Reynolds", "Fisher", "Ellis","Harrison", "Gibson", "Mcdonald",
+            "Cruz", "Marshall", "Ortiz", "Gomez", "Murray", "Freeman","Wells", "Webb", "Simpson", "Stevens", "Tucker",
+            "Porter", "Hunter", "Hicks", "Crawford","Henry", "Boyd", "Mason", "Morales", "Kennedy", "Warren", "Dixon",
+            "Ramos", "Reyes", "Burns","Gordon", "Shaw", "Holmes", "Rice", "Robertson", "Hunt", "Black", "Daniels",
+            "Palmer","Mills", "Nichols", "Grant", "Knight", "Ferguson", "Rose", "Stone", "Hawkins", "Dunn","Perkins",
+            "Hudson", "Spencer", "Gardner", "Stephens", "Payne", "Pierce", "Berry","Matthews", "Arnold", "Wagner",
+            "Willis", "Ray", "Watkins", "Olson", "Carroll", "Duncan","Snyder", "Hart", "Cunningham", "Bradley", "Lane",
+            "Andrews", "Ruiz", "Harper", "Fox","Riley", "Armstrong", "Carpenter", "Weaver", "Greene", "Lawrence",
+            "Elliott", "Chavez","Sims", "Austin", "Peters", "Kelley", "Franklin", "Lawson"
+        ];
+
+        //随机组合生成名字
+
+        $male_or_female = rand(0,1);//随机男女
+
+
+        $first_name =$male_or_female? $female_first_name_arr[array_rand($female_first_name_arr)]:$male_first_name_arr[array_rand($male_first_name_arr)];
+
+        $last_name =$last_name_arr[array_rand($last_name_arr)];
+
+        $full_name = $first_name." ".$last_name;
+
+        return $full_name;
+```
+
+## 总结
+
+看到这个类的注释,已经维护9年了,真是很佩服一直维护这个库的开发者们~
+
+随着开发工作的不断深入,使用工具的门槛越来越低,学用工具的速度也越来越快~
 
 
 
