@@ -720,6 +720,8 @@ use PHPExcel_Style_NumberFormat;
         $full_name = $first_name." ".$last_name;
 
         return $full_name;
+        
+        }
 ```
 
 ## 总结
