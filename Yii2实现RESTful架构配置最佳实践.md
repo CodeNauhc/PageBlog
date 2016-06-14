@@ -7,6 +7,8 @@
 
 无状态,分层,可扩展
 
+**本文为原创博客,被收录在我自己的GitHub项目中**[点我查看项目文件](https://github.com/diandianxiyu/PageBlog/blob/master/Yii2%E5%AE%9E%E7%8E%B0RESTful%E6%9E%B6%E6%9E%84%E9%85%8D%E7%BD%AE%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.md)
+
 ## 基于Yii2的RESTful API 的实现
 
 ### 不用自带的REST实现方式
